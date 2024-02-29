@@ -100,7 +100,7 @@ You can clone the repository and link to the script from a directory in your `PA
 
 ```bash
 git clone https://github.com/sam33r/tmux-init.git
-ln -s tmux-init/tmux-init /usr/local/bin/tmux-init # Might need sudo
+ln -s "$(pwd)/tmux-init/tmux-init" /usr/local/bin/tmux-init # Might need sudo
 ```
 
 ## Usage
