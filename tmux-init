@@ -1,17 +1,6 @@
 #!/usr/bin/env bash
 
-# The root directory for tmux init scripts.
-# Here is the directory structure this script looks for:
-#
-# This will create session <session-name> with window <window-name>,
-# and run the content of <window-name>.sh in the window:
-# <dir>/<session-name>/<window-name>.sh
-#
-# This will create session <session-name> with window <window-name>,
-# and run the content of <pane-1>.sh and <pane-2>.sh in the window
-# as panes:
-# <dir>/<session-name>/<window-name>/<pane-1>.sh
-# <dir>/<session-name>/<window-name>/<pane-2>.sh
+# The root directory to traverse.
 DIRECTORY="$HOME/.config/tmux-init"
 
 WINDOW_PANES_LAYOUT="even-horizontal"
@@ -21,6 +10,7 @@ WINDOW_PANES_LAYOUT="even-horizontal"
 # Possible values: "abort", "replace", "skip", "append".
 CONFLICT_STRATEGY="abort"
 
+# Whether to perform a dry run.
 DRY_RUN=false
 
 # Parse command line arguments.
@@ -63,7 +53,10 @@ if [ ! -d "$DIRECTORY" ]; then
 fi
 
 # Validate conflict strategy.
-if [ "$CONFLICT_STRATEGY" != "abort" ] && [ "$CONFLICT_STRATEGY" != "replace" ] && [ "$CONFLICT_STRATEGY" != "skip" ] && [ "$CONFLICT_STRATEGY" != "append" ]; then
+if [ "$CONFLICT_STRATEGY" != "abort" ] \
+  && [ "$CONFLICT_STRATEGY" != "replace" ] \
+  && [ "$CONFLICT_STRATEGY" != "skip" ] \
+  && [ "$CONFLICT_STRATEGY" != "append" ]; then
   echo "Error: Invalid conflict strategy $CONFLICT_STRATEGY."
   exit 1
 fi
