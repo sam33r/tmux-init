@@ -4,7 +4,7 @@
 
 Instead of writing a config file, you organize the scripts you want tmux to run in a directory structure. Calling `tmux-init` on that directory creates the appropriate sessions, windows and panes; and runs the scripts in them.
 
-Here's an example to demonstrate this:
+Here's an example:
 ```
 ~/
 ├── .config
@@ -64,7 +64,7 @@ This works for multiple machines as well. Here's an example setup:
             └── monitor_sensors.sh
 
 $ tmux-init -d ~/.config/tmux-init/all
-$ tmux-init -d ~/.config/tmux-init/$(hostname)
+$ tmux-init -d ~/.config/tmux-init/"$(hostname)"
 ```
 
 ### Setting up a development environment
@@ -87,7 +87,7 @@ You can have tmux-init set up dev environments. The setup scripts can live in th
                     ├── build_ui.sh      # Build the UI components.
                     └── test_ui.sh       # Execute UI-related tests.
                     
-$ tmux-init src/my-project/tmux-init
+$ tmux-init -d src/my-project/tmux-init
 ```
 
 ## What is this not good for?
@@ -105,17 +105,11 @@ ln -s tmux-init/tmux-init /usr/local/bin/tmux-init # Might need sudo
 
 ## Usage
 
-Execute the script directly in your terminal:
-
-```bash
-./tmux-init.sh
-```
-
 Optional arguments:
 
-- `-d | --dir` `<directory>`: Set the root directory for TMUX init scripts (default: `$HOME/.config/tmux-init`).
+- `-d | --dir` `<directory>`: Set the root directory to traverse (default: `$HOME/.config/tmux-init`).
 - `-l | --layout` `<layout>`: Set the layout for window panes (default: `even-horizontal`).
-- `-c | --conflicts` `<strategy>`: Define the conflict resolution strategy for window names (`abort`, `replace`, `skip`, `append`).
+- `-c | --conflicts` `<strategy>`: Define the conflict resolution strategy for windows (`abort`, `replace`, `skip`, `append`).
 - `--dry-run`: Print the sessions, windows and panes that will be created, but don't actually create them.
 
 ### Conflict Resolution
