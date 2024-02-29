@@ -1,0 +1,188 @@
+#!/usr/bin/env bash
+
+# The root directory for tmux init scripts.
+# Here is the directory structure this script looks for:
+#
+# This will create session <session-name> with window <window-name>,
+# and run the content of <window-name>.sh in the window:
+# <dir>/<session-name>/<window-name>.sh
+#
+# This will create session <session-name> with window <window-name>,
+# and run the content of <pane-1>.sh and <pane-2>.sh in the window
+# as panes:
+# <dir>/<session-name>/<window-name>/<pane-1>.sh
+# <dir>/<session-name>/<window-name>/<pane-2>.sh
+DIRECTORY="$HOME/.config/tmux-init"
+
+WINDOW_PANES_LAYOUT="even-horizontal"
+
+# Strategy for handling conflicting window names, i.e.,
+# when a window with the same name already exists.
+# Possible values: "abort", "replace", "skip", "append".
+CONFLICT_STRATEGY="abort"
+
+DRY_RUN=false
+
+# Parse command line arguments.
+while (("$#")); do
+  case "$1" in
+    -d | --dir)
+      DIRECTORY="$2"
+      shift 2
+      ;;
+    -l | --layout)
+      WINDOW_PANES_LAYOUT="$2"
+      shift 2
+      ;;
+    -c | --conflicts)
+      CONFLICT_STRATEGY="$2"
+      shift 2
+      ;;
+    --dry-run)
+      DRY_RUN=true
+      shift 1
+      ;;
+    --) # end argument parsing
+      shift
+      break
+      ;;
+    -*) # unsupported flags
+      echo "Error: Unsupported flag $1"
+      exit 1
+      ;;
+    *) # preserve positional arguments
+      shift
+      ;;
+  esac
+done
+
+# Validate the directory.
+if [ ! -d "$DIRECTORY" ]; then
+  echo "Error: Directory $DIRECTORY does not exist."
+  exit 1
+fi
+
+# Validate conflict strategy.
+if [ "$CONFLICT_STRATEGY" != "abort" ] && [ "$CONFLICT_STRATEGY" != "replace" ] && [ "$CONFLICT_STRATEGY" != "skip" ] && [ "$CONFLICT_STRATEGY" != "append" ]; then
+  echo "Error: Invalid conflict strategy $CONFLICT_STRATEGY."
+  exit 1
+fi
+
+tmux select-layout "$WINDOW_PANES_LAYOUT"
+
+function dry_run() {
+  if [ "$DRY_RUN" = true ]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+if dry_run; then
+  echo "Dry run enabled. No changes will be made."
+fi
+
+function get_id_of_tmux_window() {
+  local session_name="$1"
+  local window_name="$2"
+  tmux list-windows -t "$session_name" -F "#{window_id}|#{window_name}" | grep "$window_name$" | cut -d'|' -f1
+}
+
+function traverse_directory() {
+  local directory="$1"
+
+  echo "$directory"
+
+  # Iterate over subdirectories of directory.
+  for session_directory in "$directory"/*; do
+
+    # Get the session name from the session directory.
+    local session_name="$(basename "$session_directory")"
+
+    echo " - [Session] $session_name"
+
+    local new_session=false
+
+    if ! tmux has-session -t "$session_name"; then
+      new_session=true
+    fi
+    # If the session does not exist, create it.
+    dry_run || ($new_session && tmux new-session -d -s "$session_name")
+
+    # Iterate over children. They can either be executables or directories.
+    # For executables, we create a new window by their name (except the extension) and run them within that window.
+    # For directories, we create a new window by the name, and run executables within that directory as panes.
+    for window_file in "$session_directory"/*; do
+
+      # If the file is not a directory or an executable, skip it.
+      if [ ! -d "$window_file" ] && [ ! -x "$window_file" ]; then
+        echo "   - [IGNORED] $window_file"
+        continue
+      fi
+
+      local window_filename="$(basename "$window_file")"
+      # Split the window name into the name and the extension.
+      # TODO: Have to be careful about filenames with multiple dots, should only remove the last one.
+      local window_name="${window_filename%.*}"
+
+      # Check if the window already exists.
+      if tmux list-windows -t "$session_name" -F "#{window_name}" | grep -q "^$window_name$"; then
+        case "$CONFLICT_STRATEGY" in
+          "abort")
+            echo "Error: Window $window_name already exists in session $session_name."
+            exit 1
+            ;;
+          "replace")
+            echo "   - [Window] $window_name (replaced)"
+            dry_run || (tmux kill-window -t "$session_name:$window_name")
+            ;;
+          "skip")
+            echo "   - [Window] $window_name (skipped)"
+            continue
+            ;;
+          "append")
+            local i=1
+            while tmux list-windows -t "$session_name" -F "#{window_name}" | grep -q "^$window_name-$i$"; do
+              i=$((i + 1))
+            done
+            window_name="$window_name-$i"
+            echo "   - [Window] $window_name (appended)"
+            ;;
+        esac
+      fi
+
+      dry_run || (tmux new-window -t "$session_name" -n "$window_name" -d)
+
+      local window_id="$(get_id_of_tmux_window "$session_name" "$window_name")"
+
+      if [ -d "$window_file" ]; then
+
+        # Iterate over children of the window directory.
+        first_split=true
+        for split_file in "$window_file"/*; do
+          if [ -x "$split_file" ]; then
+            if [ "$first_split" != true ]; then
+              dry_run || tmux split-window -h -t "$session_name:$window_id"
+            fi
+            dry_run || tmux send-keys -t "$session_name:$window_id" "'$split_file'" Enter
+            first_split=false
+            split_filename=$(basename "$split_file")
+            echo "     - [Pane] $split_filename"
+          fi
+        done
+      elif [ -x "$window_file" ]; then
+        dry_run || tmux send-keys -t "$session_name:$window_id" "'$window_file'" Enter
+      else
+        echo "$window_file is not a directory or an executable, ignoring."
+      fi
+    done
+
+    # If the session was new, remove the very first window that was created by default.
+    if [ "$new_session" = true ]; then
+      dry_run || tmux kill-window -t "$session_name:0"
+    fi
+
+  done
+}
+
+traverse_directory "$DIRECTORY"
