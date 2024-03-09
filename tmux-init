@@ -145,6 +145,7 @@ function traverse_directory() {
       fi
 
       dry_run || (tmux new-window -t "$session_name" -n "$window_name" -d)
+      echo "   - [Window] $window_name"
 
       local window_id="$(get_id_of_tmux_window "$session_name" "$window_name")"
 
