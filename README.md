@@ -92,7 +92,7 @@ $ tmux-init -d src/my-project/tmux-init
 
 ## What is this not good for?
 
-Fine-grained control over splits, nested splits, and other advanced window/pane management. It's goal is to have a simple, config-less way to initialize tmux sessions.
+Fine-grained control over splits, nested splits, and other advanced window/pane management. Its goal is to have a simple, config-less way to initialize tmux sessions.
 
 ## Installation
 
